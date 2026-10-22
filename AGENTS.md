@@ -85,10 +85,13 @@ providers/<provider-id>/
 ```toml
 name = "Example"
 npm = "@ai-sdk/openai-compatible"   # or the native AI SDK package
+opencodeai = "@opencode/ai/providers/openai-compatible" # the host's own entry point if @opencode/ai has one
 env = ["EXAMPLE_API_KEY"]
 api = "https://api.example.com/v1" # required for openai-compatible
 doc = "https://example.com/docs"
 ```
+
+Every provider sets `opencodeai` for its default API (`npm` + `api`); the generator doesn't guess it. Use the host's own `@opencode/ai/providers/<host>` entry when there is one, else the generic one for the protocol (`openai-compatible`, `openai-compatible/responses`, `anthropic-compatible`), or `"none"`.
 
 ### Logo (blocker for new providers)
 
@@ -174,7 +177,7 @@ body = { speed = "fast" }
 - New models that v1 shouldn't publish (e.g. realtime, audio, transcription and speech models) set `v2_only = true` in their lab and provider files. v1 output leaves them out; the v2 output includes them, and v2-only labs still work as `base_model`.
 - Sync patches v2 files in place: it updates the fields it owns and keeps v2-only data (cache, tiers, multipliers, cache TTLs). Once a provider has v2 files, sync creates new ones in v2. If a patch can't reproduce the synced fields, sync leaves the file and reports a notice.
 - Lab files must set `temperature`, `top_p` and `top_k` explicitly. Provider-level mid-conversation flags record what the API accepts (per its docs, confirmed live), not whether the model obeys: `system_updates` (system/developer messages after the conversation starts, sent in place), `effort_updates` (a per-turn effort change that keeps the cache, e.g. OpenAI `configuration_update`, Anthropic per-message `output_config`), `tools.updates` (adding/removing tools mid-conversation while keeping the cache, e.g. Anthropic `tool_addition`/`tool_removal`, OpenAI Responses `additional_tools`). Tool search is `tools.search`.
-- A model's `[api.<protocol>]` tables are its complete list of APIs, in order, and replace the provider's default API. Each table can set `base_url`, `sdk = { aisdk, opencodeai }` and `compatibility.reasoning_field`/`replay_reasoning`; anything it leaves out comes from the provider (`base_url` from `api` or the SDK's default URL, `sdk.aisdk` from `npm`, `sdk.opencodeai` from the provider's `opencodeai`). The v2 output publishes every table. v1 only reads the first one, as its `provider` and `interleaved` fields. If a filled-in combination is wrong, fix the data.
+- A model's `[api.<protocol>]` tables are its complete list of APIs, in order, and replace the provider's default API. Each table can set `base_url`, `sdk = { aisdk, opencodeai }` and `compatibility.reasoning_field`/`replay_reasoning`; anything it leaves out comes from the provider (`base_url` from `api` or the SDK's default URL, `sdk.aisdk` from `npm`, `sdk.opencodeai` from the provider's `opencodeai`, but only when the table takes the provider's `npm`: a table naming another `aisdk` must name its own `opencodeai` or gets none). The v2 output publishes every table. v1 only reads the first one, as its `provider` and `interleaved` fields. If a filled-in combination is wrong, fix the data.
 - `opencodeai` (provider.toml's top-level field for the default API, or `sdk.opencodeai` in a model table) is an `@opencode/ai` entry point: `@opencode/ai/providers/<path>` for a provider's chat, responses or messages model (e.g. `@opencode/ai/providers/openai/chat`), or `@opencode/ai/protocols/<name>` for APIs with no provider entry point, such as media (`@opencode/ai/protocols/openai-images`, `openai-speech`, `openai-transcription`). v1 never publishes it.
 - `"none"` in `sdk.aisdk`, `sdk.opencodeai` or the provider's `opencodeai` says no package supports that API: nothing is filled in, and the v2 output has no such key (e.g. `sdk = { aisdk = "none" }` on a decision model's `[api.systemone]`). v1 is unaffected.
 - `legacy_shape = "responses" | "completions"` in an `[api.<protocol>]` table is legacy and v1-only: it keeps a v1 `provider.shape` that repeats the SDK's default (e.g. `shape = "responses"` on `@ai-sdk/openai`) so v1 doesn't change. The v2 API never emits it; migrate-v2 and sync write and keep it, so don't add it by hand.
